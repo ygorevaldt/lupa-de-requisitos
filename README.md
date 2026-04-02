@@ -6,35 +6,6 @@ O sistema foi projetado para transformar documentos complexos (PDF) em relatóri
 
 ---
 
-## 📺 Demonstração Visual
-
-### 📤 Upload de Documento
-A interface limpa e intuitiva permite o upload via drag-and-drop, processando arquivos PDF inteiramente em memória para máxima segurança.
-
-![Upload de Documento](assets/upload.png)
-
-### 📊 Visão Geral e Métricas
-Após a análise, o dashboard apresenta métricas de qualidade e uma visão geral do projeto.
-
-![Visão Geral](assets/graficos.png)
-
-### 🧩 Detalhamento por Camadas
-A análise é segmentada para facilitar a revisão por QAs e Analistas:
-
-| Objetivo e Escopo | Funcionalidades |
-| :---: | :---: |
-| ![Objetivo](assets/sessao-1-objetivo-projeto.png) | ![Funcionalidades](assets/sessao-2-funcionalidades-projeto.png) |
-
-| Conflitos e Ambiguidades | Gaps de Negócio |
-| :---: | :---: |
-| ![Conflitos](assets/sessao-3-conflitos.png) | ![Gaps](assets/sessao-4-gaps.png) |
-
-| Integrações e Dependências |
-| :---: |
-| ![Integrações](assets/sessao-5-integracoes.png) |
-
----
-
 ## 🚀 Funcionalidades Principais
 
 - **Multi-Agent Pipeline:** Orquestração de múltiplos especialistas de IA para análise profunda.
