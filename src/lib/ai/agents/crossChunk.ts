@@ -12,7 +12,7 @@ export class CrossChunkAgent {
       model: "gemini-2.5-pro",
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.0,
+        temperature: 0.1,
       },
     });
   }

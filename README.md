@@ -1,58 +1,67 @@
-# 📄 Gemini Doc Analyzer
+# Lupa de Requisitos
 
-Uma aplicação Web inteligente construída com **Next.js 14+ (App Router)** que permite o envio de documentos de requisitos em formato PDF para realizar uma análise detalhada utilizando a API do **Gemini 2.5 Flash**. O sistema foca em performance, processando os documentos em memória, e fornece análises ricas e categorizadas sobre o conteúdo do documento.
+Uma ferramenta inteligente de Auditoria Técnica e Análise de Requisitos, construída com **Next.js 14+ (App Router)** e impulsionada pela API do **Google Gemini 2.5 Flash**. 
 
-## 🚀 Funcionalidades
+O sistema foi projetado para transformar documentos complexos (PDF) em relatórios técnicos estruturados, identificando funcionalidades, falhas lógicas, conflitos e gaps de negócio com alta precisão através de um pipeline de multi-agentes.
 
-- **Upload e Drag-and-drop:** Interface amigável para envio de arquivos PDF.
-- **Processamento em Memória:** O arquivo PDF é processado no servidor (backend) sem ser salvo em disco, garantindo segurança e agilidade.
-- **Integração com IA (Gemini 2.5 Flash):** Análise rápida e detalhada usando a mais recente tecnologia do Google Generative AI.
-- **Extração Inteligente de Conteúdo:**
-  - **📝 Resumo Executivo:** Visão geral do que o projeto ou documento aborda.
-  - **✅ Funcionalidades:** Lista clara de todas as funcionalidades identificadas no escopo.
-  - **⚠️ Falhas Lógicas:** Detecção estruturada de erros de lógica apresentados no documento, com análise de impacto e gravidade.
-  - **🏢 Gaps de Negócio:** Mapeamento de regras de negócio faltantes ou ambíguas.
-  - **🎨 Sugestões de UX:** Dicas de melhorias para a experiência do usuário baseadas nas regras apresentadas.
-- **Exportação (Printable/PDF):** Resultados exibidos de forma otimizada e organizados em modais/cards limpos.
+---
 
-## 🛠️ Tecnologias Utilizadas
+## 📺 Demonstração Visual
 
-- **[Next.js 14+](https://nextjs.org/)** - Framework React com App Router
-- **[TypeScript](https://www.typescriptlang.org/)** - Tipagem estática
-- **[Tailwind CSS](https://tailwindcss.com/)** - Estilização utilitária
-- **[Lucide React](https://lucide.dev/)** - Biblioteca de ícones
-- **[Google Generative AI SDK](https://www.npmjs.com/package/@google/generative-ai)** - Integração com o modelo Gemini 1.5 Flash
-- **[pdf-parse](https://www.npmjs.com/package/pdf-parse)** - Extração de texto de PDF no ambiente servidor
-- **[jsPDF / jsPDF AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable)** - Para suporte opcional de exportação de PDF no lado cliente
+### 📤 Upload de Documento
+A interface limpa e intuitiva permite o upload via drag-and-drop, processando arquivos PDF inteiramente em memória para máxima segurança.
 
-## 🏗️ Arquitetura do Sistema
+![Upload de Documento](assets/upload.png)
 
-A aplicação utiliza uma arquitetura baseada em um **Pipeline de Multi-Agentes** para processar documentos complexos com alta precisão e especialização.
+### 📊 Visão Geral e Métricas
+Após a análise, o dashboard apresenta métricas de qualidade e uma visão geral do projeto.
 
-### 🧩 Componentes do Core
+![Visão Geral](assets/graficos.png)
 
-1.  **Chunker**: Responsável por segmentar o texto extraído do PDF em blocos gerenciáveis. Isso permite processar documentos extensos sem exceder limites de contexto e focar a análise em partes específicas do documento.
-2.  **Pipeline Orchestrator**: Coordena a execução dos agentes. Ele gerencia o fluxo de dados entre os blocos de texto e os especialistas de IA, garantindo que cada parte do documento seja analisada sob múltiplas perspectivas.
-3.  **Agentes Especialistas**: Cada agente é configurado com prompts específicos para atuar em domínios distintos:
-    *   **Functionalities Agent**: Focado em identificar e descrever os requisitos funcionais.
-    *   **Business Rules Agent**: Especialista em regras de negócio e identificação de lacunas (gaps).
-    *   **Integrations Agent**: Mapeia dependências e comunicações com sistemas externos.
-    *   **Exceptions Agent**: Identifica fluxos de erro, estados de borda e mensagens ausentes.
-    *   **Conflicts Agent**: Detecta contradições lógicas e ambiguidades no texto.
-4.  **Aggregator**: Atua como um "Arquiteto de Soluções Sênior", recebendo as descobertas parciais de todos os agentes e consolidando-as em um relatório final estruturado, eliminando duplicatas e gerando métricas de qualidade.
+### 🧩 Detalhamento por Camadas
+A análise é segmentada para facilitar a revisão por QAs e Analistas:
 
-### 🔄 Fluxo de Execução (End-to-End)
+| Objetivo e Escopo | Funcionalidades |
+| :---: | :---: |
+| ![Objetivo](assets/sessao-1-objetivo-projeto.png) | ![Funcionalidades](assets/sessao-2-funcionalidades-projeto.png) |
 
-![Fluxo de Análise Multi-Agente](assets/diagrama-mermaid.png)
+| Conflitos e Ambiguidades | Gaps de Negócio |
+| :---: | :---: |
+| ![Conflitos](assets/sessao-3-conflitos.png) | ![Gaps](assets/sessao-4-gaps.png) |
+
+| Integrações e Dependências |
+| :---: |
+| ![Integrações](assets/sessao-5-integracoes.png) |
+
+---
+
+## 🚀 Funcionalidades Principais
+
+- **Multi-Agent Pipeline:** Orquestração de múltiplos especialistas de IA para análise profunda.
+- **Detecção de Conflitos Cruzados:** Identifica contradições entre diferentes partes do mesmo documento.
+- **Análise de Impacto e Gravidade:** Categorização automática de falhas lógicas e riscos.
+- **Mapeamento de Gaps:** Identificação de fluxos de exceção e regras de negócio não descritas.
+- **Exportação Otimizada:** Relatórios formatados para impressão ou exportação em PDF.
+- **Segurança Enterprise:** Processamento 100% em memória (sem persistência de arquivos sensíveis).
+
+---
+
+## 🏗️ Arquitetura do Sistema (Pipeline de IA)
+
+A aplicação utiliza uma arquitetura de **Pipeline de Multi-Agentes** para garantir especialização e precisão.
+
+### 🔄 Fluxo de Análise
+
+![Diagrama de Fluxo](assets/diagrama-mermaid.png)
 
 ```mermaid
 graph TD
-    A[Usuário: Upload PDF] --> B[API: /api/analyze]
+    A[Usuário: Upload PDF] --> B[API /api/analyze]
     B --> C[Extração de Texto - pdf-parse]
-    C --> D[Chunker: Segmentação de Texto]
-    D --> E[Pipeline: Orquestração]
+    C --> D[Chunker: Segmentação Inteligente]
+    D --> E[Pipeline: Orquestrador]
     
-    subgraph "Camada de Agentes (Análise em Paralelo)"
+    subgraph "Agentes Especialistas (Análise Paralela)"
         E --> F1[Functionalities Agent]
         E --> F2[Business Rules Agent]
         E --> F3[Integrations Agent]
@@ -60,68 +69,62 @@ graph TD
         E --> F5[Conflicts Agent]
     end
     
-    F1 & F2 & F3 & F4 & F5 --> G[Aggregator: Consolidação Inteligente]
-    G --> H[Frontend: Renderização de Dashboards]
-    H --> I[Usuário: Visualização do Relatório]
+    F1 & F2 & F3 & F4 & F5 --> G[Cross-Chunk Review: Visão Holística]
+    G --> H[Aggregator: Consolidação Sênior]
+    H --> I[Frontend: Dashboards Interativos]
 ```
 
-## ⚙️ Pré-requisitos
+### 🧩 Componentes do Core
 
-Para rodar o projeto localmente, certifique-se de ter instalado:
-- Node.js (versão 18.x ou superior recomendada)
-- `npm`, `yarn` ou `pnpm`
-- Uma chave de API válida do **Google Gemini** (Google AI Studio).
-
-## 🏃‍♂️ Como Executar Localmente
-
-**1. Clone o repositório ou acesse a pasta do projeto:**
-```bash
-cd gemini-analyzer
-```
-
-**2. Instale as dependências:**
-```bash
-npm install
-# ou
-yarn install
-# ou
-pnpm install
-```
-
-**3. Configure as Variáveis de Ambiente:**
-Crie um arquivo `.env.local` na raiz do projeto e adicione a sua chave da API do Gemini:
-```env
-GOOGLE_GEMINI_API_KEY=sua_chave_de_api_aqui
-```
-
-**4. Inicie o servidor de desenvolvimento:**
-```bash
-npm run dev
-# ou
-yarn dev
-# ou
-pnpm dev
-```
-
-**5. Acesse a Aplicação:**
-Abra [http://localhost:3000](http://localhost:3000) no seu navegador para utilizar a ferramenta.
-
-## 📁 Estrutura do Projeto
-
-- `src/app/page.tsx`: Interface principal da aplicação.
-- `src/app/api/analyze/route.ts`: Entry point da API que orquestra o processo de análise.
-- `src/lib/ai/`:
-    - `pipeline.ts`: Orquestrador dos agentes de IA.
-    - `chunker.ts`: Lógica de segmentação de documentos.
-    - `aggregator.ts`: Consolidação inteligente de resultados múltiplos.
-    - `agents/`: Implementação detalhada de cada especialista de análise.
-- `src/components/`: Componentes React para exibição de resultados e UI.
-
-## 💡 Princípios de Arquitetura
-
-- **Especialização de Domínio**: Em vez de um único prompt genérico, utilizamos múltiplos agentes especialistas, cada um com uma instrução de sistema otimizada para identificar aspectos específicos do documento.
-- **Processamento em Memória**: Segurança rigorosa – o PDF é processado inteiramente em memória no servidor, sem persistência em disco ou banco de dados.
-- **Resiliência e Recuperação**: O sistema utiliza técnicas de retry e fallback no agregador JSON para garantir que falhas parciais de IA não interrompam a experiência do usuário.
+1.  **Chunker**: Divide o texto em blocos semânticos para respeitar o limite de contexto e aumentar a "atenção" da IA em detalhes.
+2.  **Pipeline Orchestrator**: Gerencia a execução paralela dos agentes especialistas.
+3.  **Agentes Especialistas**:
+    *   **Functionalities**: Mapeia o escopo funcional.
+    *   **Business Rules**: Analisa a consistência das regras.
+    *   **Integrations**: Detecta dependências técnicas.
+    *   **Exceptions**: Foca em fluxos de erro e UX.
+    *   **Conflicts**: Busca ambiguidades textuais.
+4.  **Cross-Chunk Reviewer**: Um agente adicional que analisa as descobertas de todos os chunks para encontrar inconsistências globais.
+5.  **Aggregator**: Consolida todos os JSONs parciais em um relatório final coeso e sem redundâncias.
 
 ---
-*Projeto desenvolvido para análise inteligente de requisitos de software e auxílio para QAs e Analistas de Sistemas.*
+
+## 🛠️ Stack Tecnológica
+
+- **Frontend/Backend:** [Next.js 14+](https://nextjs.org/) (TypeScript)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) & [Lucide React](https://lucide.dev/)
+- **Core AI:** [Google Generative AI SDK](https://www.npmjs.com/package/@google/generative-ai) (Gemini 1.5 Flash)
+- **Processamento PDF:** [pdf-parse](https://www.npmjs.com/package/pdf-parse)
+- **Gráficos/UI:** [Recharts](https://recharts.org/) (para visualização de métricas)
+
+---
+
+## ⚙️ Configuração Local
+
+1.  **Instalação:**
+    ```bash
+    npm install
+    ```
+2.  **Variáveis de Ambiente (`.env.local`):**
+    ```env
+    GOOGLE_GEMINI_API_KEY=sua_chave_aqui
+    ```
+3.  **Execução:**
+    ```bash
+    npm run dev
+    ```
+
+---
+
+## 📁 Estrutura de Diretórios
+
+```text
+├── assets/             # Assets visuais (screenshots/diagramas)
+├── src/
+│   ├── app/            # Rotas e entry points (Next.js)
+│   ├── components/     # Componentes de UI e Dashboards
+│   └── lib/ai/         # O Coração da IA (Agentes, Pipeline, Chunker)
+```
+
+---
+*Projeto focado em elevar a qualidade de documentações de software e reduzir retrabalho no desenvolvimento.*
