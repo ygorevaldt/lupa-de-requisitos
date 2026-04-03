@@ -1,6 +1,103 @@
 import { AnalysisResult, FinalReport } from "./types";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel, SchemaType, Schema } from "@google/generative-ai";
 import { withRetry, safeParseJson } from "./utils";
+
+const aggregatorSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    projeto_resumo: { type: SchemaType.STRING, description: "Resumo executivo do projeto" },
+    funcionalidades_principais: { 
+      type: SchemaType.ARRAY, 
+      items: { type: SchemaType.STRING },
+      description: "Lista de títulos das funcionalidades mais importantes"
+    },
+    metricas_qualidade: {
+      type: SchemaType.OBJECT,
+      properties: {
+        rn_satisfatorias: { type: SchemaType.NUMBER, description: "Contagem de Regras de Negócio sem problemas" },
+        rn_com_gaps: { type: SchemaType.NUMBER, description: "Contagem de Regras de Negócio com gaps detectados" },
+        rf_satisfatorios: { type: SchemaType.NUMBER, description: "Contagem de Requisitos Funcionais sem problemas" },
+        rf_com_gaps: { type: SchemaType.NUMBER, description: "Contagem de Requisitos Funcionais com falhas de lógica/exceção" }
+      },
+      required: ["rn_satisfatorias", "rn_com_gaps", "rf_satisfatorios", "rf_com_gaps"]
+    },
+    analise_integridade: { type: SchemaType.STRING, description: "Avaliação técnica sobre a coesão do documento" },
+    falhas_logicas_e_excecoes: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          problema: { type: SchemaType.STRING },
+          impacto: { type: SchemaType.STRING },
+          sessao: { type: SchemaType.STRING },
+          pagina: { type: SchemaType.STRING },
+          sugestao_correcao: { type: SchemaType.STRING }
+        },
+        required: ["problema", "impacto", "sessao", "pagina", "sugestao_correcao"]
+      }
+    },
+    integracoes_e_dependencias: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          sistema: { type: SchemaType.STRING },
+          status_especificacao: { type: SchemaType.STRING },
+          detalhe: { type: SchemaType.STRING },
+          pagina: { type: SchemaType.STRING },
+          impacto: { type: SchemaType.STRING }
+        },
+        required: ["sistema", "status_especificacao", "detalhe", "pagina", "impacto"]
+      }
+    },
+    gaps_regra_negocio: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          regra: { type: SchemaType.STRING },
+          cenario_omitido: { type: SchemaType.STRING },
+          risco: { type: SchemaType.STRING },
+          pagina: { type: SchemaType.STRING },
+          sugestao_correcao: { type: SchemaType.STRING }
+        },
+        required: ["regra", "cenario_omitido", "risco", "pagina", "sugestao_correcao"]
+      }
+    },
+    mensagens_e_estados_ausentes: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "Lista de feedbacks ou estados de erro que faltam no sistema"
+    },
+    conflitos_cruzados: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          descricao: { type: SchemaType.STRING },
+          pagina_referencia: { type: SchemaType.STRING },
+          impacto: { type: SchemaType.STRING },
+          tipo: { type: SchemaType.STRING },
+          sugestao_correcao: { type: SchemaType.STRING }
+        },
+        required: ["descricao", "pagina_referencia", "impacto", "tipo", "sugestao_correcao"]
+      }
+    },
+    conclusao_tecnica: { type: SchemaType.STRING, description: "Parecer técnico final e recomendações" }
+  },
+  required: [
+    "projeto_resumo", 
+    "funcionalidades_principais", 
+    "metricas_qualidade", 
+    "analise_integridade", 
+    "falhas_logicas_e_excecoes", 
+    "integracoes_e_dependencias", 
+    "gaps_regra_negocio", 
+    "mensagens_e_estados_ausentes", 
+    "conflitos_cruzados", 
+    "conclusao_tecnica"
+  ]
+};
 
 export class Aggregator {
   private model: GenerativeModel;
@@ -9,10 +106,11 @@ export class Aggregator {
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({
       model: "gemini-2.5-pro",
+      systemInstruction: "Você é um Arquiteto de Soluções Sênior. Sua tarefa é consolidar os resultados de diversos agentes em um único RELATÓRIO TÉCNICO estruturado.",
       generationConfig: {
         responseMimeType: "application/json",
+        responseSchema: aggregatorSchema,
         temperature: 0.1,
-        maxOutputTokens: 8192,
       },
     });
   }
@@ -22,7 +120,6 @@ export class Aggregator {
   }
 
   async aggregate(results: AnalysisResult[]): Promise<FinalReport> {
-    // Collect all data from agents
     const uniqueByJson = <T>(items: T[]) => {
       const seen = new Set<string>();
       return items.filter((item) => {
@@ -55,83 +152,45 @@ export class Aggregator {
       .flatMap((r) => r.conflitos_cruzados || []);
     const uniqueCrossChunkFindings = uniqueByJson(crossChunkFindings);
 
-    // Final prompt to synthesize everything into the expected format
     const prompt = `
-      Você é um Arquiteto de Soluções Sênior. Sua tarefa é consolidar os resultados de diversos agentes em um único RELATÓRIO TÉCNICO.
+      Consolide os seguintes dados coletados pelos agentes em um relatório técnico final:
       
       DADOS COLETADOS:
       Funcionalidades: ${JSON.stringify(uniqueFunctionalities)}
       Gaps de Regra de Negócio: ${JSON.stringify(uniqueGaps)}
       Integrações: ${JSON.stringify(uniqueIntegracoes)}
       Problemas de UX/Exceções: ${JSON.stringify(uniqueProblemasUX)}
-      Conflitos/Inconsistências: ${JSON.stringify(uniqueConflitos)}
+      Conflitos/Inconsistências Locais: ${JSON.stringify(uniqueConflitos)}
       Conflitos Cruzados: ${JSON.stringify(uniqueCrossChunkFindings)}
-
-      REQUISITO CRÍTICO DE FORMATO:
-      Retorne um JSON válido e COMPLETO. O campo "conclusao_tecnica" é OBRIGATÓRIO e deve conter sua visão profissional final.
-      
-      ESTRUTURA ESPERADA (JSON):
-      {
-        "projeto_resumo": "...",
-        "funcionalidades_principais": ["..."],
-        "metricas_qualidade": {
-          "rn_satisfatorias": 0,
-          "rn_com_gaps": 0,
-          "rf_satisfatorios": 0,
-          "rf_com_gaps": 0
-        },
-        "analise_integridade": "...",
-        "falhas_logicas_e_excecoes": [
-          {
-            "problema": "...",
-            "impacto": "Alto/Médio/Baixo",
-            "sessao": "...",
-            "pagina": "...",
-            "sugestao_correcao": "..."
-          }
-        ],
-        "integracoes_e_dependencias": [
-          {
-            "sistema": "...",
-            "status_especificacao": "Completo/Incompleto/Ausente",
-            "detalhe": "...",
-            "pagina": "...",
-            "impacto": "..."
-          }
-        ],
-        "gaps_regra_negocio": [
-          {
-            "regra": "...",
-            "cenario_omitido": "...",
-            "risco": "...",
-            "pagina": "...",
-            "sugestao_correcao": "..."
-          }
-        ],
-        "mensagens_e_estados_ausentes": ["..."],
-        "conflitos_cruzados": [
-          {
-            "descricao": "...",
-            "pagina_referencia": "...",
-            "impacto": "Alto/Médio/Baixo",
-            "tipo": "...",
-            "sugestao_correcao": "..."
-          }
-        ],
-        "conclusao_tecnica": "SUMÁRIO TÉCNICO FINAL: Sua análise profissional aqui."
-      }
     `;
 
-    const result = await withRetry(() => this.model.generateContent(prompt));
-    const response = await result.response;
-    const text = response.text().trim();
-    const parsed = safeParseJson<Partial<FinalReport>>(text, "aggregator");
+    let rawText = "";
+    try {
+      const result = await withRetry(() => this.model.generateContent(prompt));
+      const response = await result.response;
+      rawText = response.text().trim();
+      const parsed = safeParseJson<FinalReport>(rawText, "aggregator");
 
-    // Fallback logic check if empty
-    const ensureString = (val: any) => (typeof val === "string" ? val : JSON.stringify(val));
+      if (!parsed) {
+        throw new Error("Falha ao analisar o JSON do agregador.");
+      }
 
-    if (!parsed || typeof parsed !== "object") {
-      console.error("Error parsing final aggregation JSON.", { text: text.slice(0, 1000) });
+      // Ensure data fidelity by merging back the original unique findings if the model omitted them
+      return {
+        ...parsed,
+        funcionalidades_principais: parsed.funcionalidades_principais?.length ? parsed.funcionalidades_principais : uniqueFunctionalities.map(f => f.title || "Sem título"),
+        falhas_logicas_e_excecoes: parsed.falhas_logicas_e_excecoes?.length ? parsed.falhas_logicas_e_excecoes : uniqueProblemasUX,
+        integracoes_e_dependencias: parsed.integracoes_e_dependencias?.length ? parsed.integracoes_e_dependencias : uniqueIntegracoes,
+        gaps_regra_negocio: parsed.gaps_regra_negocio?.length ? parsed.gaps_regra_negocio : uniqueGaps,
+        conflitos_cruzados: parsed.conflitos_cruzados?.length ? parsed.conflitos_cruzados : uniqueCrossChunkFindings,
+      };
+    } catch (error) {
+      console.error("[Aggregator] Erro ao consolidar relatório final:", {
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        rawResponse: rawText
+      });
+      
+      // Full Fallback
       return {
         projeto_resumo: "Erro na consolidação automática.",
         funcionalidades_principais: uniqueFunctionalities.map(f => f.title || "Sem título"),
@@ -142,38 +201,8 @@ export class Aggregator {
         gaps_regra_negocio: uniqueGaps,
         mensagens_e_estados_ausentes: uniqueProblemasUX.map((p: any) => p.problema || "Não identificado"),
         conflitos_cruzados: uniqueCrossChunkFindings,
-        conclusao_tecnica: "O modelo de agregação falhou ao processar a resposta completa. Verifique os dados detalhados acima.",
+        conclusao_tecnica: "O modelo de agregação falhou ao processar a resposta. Verifique os dados detalhados acima.",
       };
     }
-
-    return {
-      projeto_resumo: ensureString(parsed.projeto_resumo || "Não disponível."),
-      funcionalidades_principais: Array.isArray(parsed.funcionalidades_principais) && parsed.funcionalidades_principais.length > 0
-        ? parsed.funcionalidades_principais
-        : uniqueFunctionalities.map(f => f.title || "Sem título"),
-      metricas_qualidade: parsed.metricas_qualidade || {
-        rn_satisfatorias: 0,
-        rn_com_gaps: uniqueGaps.length,
-        rf_satisfatorios: 0,
-        rf_com_gaps: uniqueProblemasUX.length,
-      },
-      analise_integridade: ensureString(parsed.analise_integridade || "Verificar dados abaixo."),
-      falhas_logicas_e_excecoes: (Array.isArray(parsed.falhas_logicas_e_excecoes) && parsed.falhas_logicas_e_excecoes.length > 0)
-        ? parsed.falhas_logicas_e_excecoes
-        : uniqueProblemasUX,
-      integracoes_e_dependencias: (Array.isArray(parsed.integracoes_e_dependencias) && parsed.integracoes_e_dependencias.length > 0)
-        ? parsed.integracoes_e_dependencias
-        : uniqueIntegracoes,
-      gaps_regra_negocio: (Array.isArray(parsed.gaps_regra_negocio) && parsed.gaps_regra_negocio.length > 0)
-        ? parsed.gaps_regra_negocio
-        : uniqueGaps,
-      mensagens_e_estados_ausentes: (Array.isArray(parsed.mensagens_e_estados_ausentes) && parsed.mensagens_e_estados_ausentes.length > 0)
-        ? parsed.mensagens_e_estados_ausentes
-        : uniqueProblemasUX.map((p: any) => p.problema || "Não identificado"),
-      conflitos_cruzados: (Array.isArray(parsed.conflitos_cruzados) && parsed.conflitos_cruzados.length > 0)
-        ? parsed.conflitos_cruzados
-        : uniqueCrossChunkFindings,
-      conclusao_tecnica: ensureString(parsed.conclusao_tecnica || "Análise completa disponível nos detalhes acima."),
-    };
   }
 }

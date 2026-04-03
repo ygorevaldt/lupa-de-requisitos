@@ -1,21 +1,47 @@
 import { Agent, AnalysisResult, Chunk } from "../types";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel, SchemaType, Schema } from "@google/generative-ai";
 import { withRetry, safeParseJson } from "../utils";
+
+const exceptionsSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    problemas_ux: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          problema: { type: SchemaType.STRING, description: "O que está faltando? (ex: feedback de erro, empty state)" },
+          impacto: { 
+            type: SchemaType.STRING, 
+            enum: ["Alto", "Médio", "Baixo"],
+            format: "enum",
+            description: "Impacto no negócio/usuário" 
+          },
+          sessao: { type: SchemaType.STRING, description: "Nome da seção ou tela impactada" },
+          pagina: { type: SchemaType.STRING, description: "Número da página" },
+          sugestao_correcao: { type: SchemaType.STRING, description: "O que deve ser adicionado no documento" }
+        },
+        required: ["problema", "impacto", "sessao", "pagina", "sugestao_correcao"]
+      }
+    }
+  },
+  required: ["problemas_ux"]
+};
 
 export class ExceptionsAgent implements Agent {
   name = "Exceptions";
   private model: GenerativeModel;
-
   private usingCache = false;
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
+      systemInstruction: "Você é um Especialista em UX e QA Sênior. Sua tarefa única e exclusiva é identificar ESTADOS DE ERRO E EXCEÇÕES AUSENTES em documentos de requisitos.",
       generationConfig: {
         responseMimeType: "application/json",
+        responseSchema: exceptionsSchema,
         temperature: 0.1,
-        maxOutputTokens: 8192,
       },
     });
   }
@@ -27,38 +53,30 @@ export class ExceptionsAgent implements Agent {
 
   async analyze(chunk: Chunk): Promise<AnalysisResult> {
     const prompt = `
-      Você é um Especialista em UX e QA Sênior. Sua tarefa é identificar ESTADOS DE ERRO E EXCEÇÕES AUSENTES.
+      Analise o seguinte conteúdo (Páginas ${chunk.startPage} a ${chunk.endPage}) em busca de estados de erro e exceções ausentes:
       
-      FOCO DA ANÁLISE (Páginas ${chunk.startPage} a ${chunk.endPage}):
+      CONTEÚDO:
       ${this.usingCache ? "(O conteúdo completo está disponível no contexto de cache)" : chunk.content}
-
-      REQUISITO CRÍTICO DE FORMATO:
-      Retorne APENAS um objeto JSON no formato abaixo, sem Markdown, sem preâmbulo.
-      
-      ESTRUTURA ESPERADA:
-      {
-        "problemas_ux": [
-          {
-            "problema": "O que está faltando? (ex: feedback de erro, empty state)",
-            "impacto": "Alto" | "Médio" | "Baixo",
-            "sessao": "Nome da seção/tela",
-            "pagina": "${chunk.startPage}",
-            "sugestao_correcao": "O que deve ser adicionado no documento"
-          }
-        ]
-      }
     `;
 
-    const result = await withRetry(() => this.model.generateContent(prompt));
-    const response = await result.response;
-    const text = response.text().trim();
-    const parsed = safeParseJson<{ problemas_ux?: any[] }>(text, "exceptions");
+    let rawText = "";
+    try {
+      const result = await withRetry(() => this.model.generateContent(prompt));
+      const response = await result.response;
+      rawText = response.text().trim();
+      const parsed = safeParseJson<{ problemas_ux?: any[] }>(rawText, "exceptions");
 
-    if (!parsed || !Array.isArray(parsed.problemas_ux)) {
-      console.error("Error parsing exceptions JSON or missing problemas_ux array.", { text: text.slice(0, 1000) });
+      if (!parsed || !parsed.problemas_ux || !Array.isArray(parsed.problemas_ux)) {
+        throw new Error("Estrutura JSON inválida ou vazia recebida do modelo.");
+      }
+
+      return { problemas_ux: parsed.problemas_ux };
+    } catch (error) {
+      console.error(`[ExceptionsAgent] Erro de Parse nas páginas ${chunk.startPage}-${chunk.endPage}:`, {
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        rawResponse: rawText
+      });
       return { problemas_ux: [] };
     }
-
-    return { problemas_ux: parsed.problemas_ux };
   }
 }

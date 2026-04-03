@@ -1,21 +1,47 @@
 import { Agent, AnalysisResult, Chunk } from "../types";
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel, SchemaType, Schema } from "@google/generative-ai";
 import { withRetry, safeParseJson } from "../utils";
+
+const integrationsSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    integracoes: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          sistema: { type: SchemaType.STRING, description: "Nome do sistema ou serviço integrado" },
+          status_especificacao: { 
+            type: SchemaType.STRING, 
+            enum: ["Completo", "Incompleto", "Ausente"],
+            format: "enum",
+            description: "Grau de detalhamento da integração" 
+          },
+          detalhe: { type: SchemaType.STRING, description: "O que é integrado? (Processo, API, Banco de Dados)" },
+          pagina: { type: SchemaType.STRING, description: "Número da página" },
+          impacto: { type: SchemaType.STRING, description: "Risco técnico se faltar detalhamento" }
+        },
+        required: ["sistema", "status_especificacao", "detalhe", "pagina", "impacto"]
+      }
+    }
+  },
+  required: ["integracoes"]
+};
 
 export class IntegrationsAgent implements Agent {
   name = "Integrations";
   private model: GenerativeModel;
-
   private usingCache = false;
 
   constructor(apiKey: string) {
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
+      systemInstruction: "Você é um Arquiteto de Software Especialista em Integrações. Sua tarefa única e exclusiva é extrair SISTEMAS, APIs e DEPENDÊNCIAS de documentos de requisitos.",
       generationConfig: {
         responseMimeType: "application/json",
+        responseSchema: integrationsSchema,
         temperature: 0.1,
-        maxOutputTokens: 8192,
       },
     });
   }
@@ -27,38 +53,30 @@ export class IntegrationsAgent implements Agent {
 
   async analyze(chunk: Chunk): Promise<AnalysisResult> {
     const prompt = `
-      Você é um Arquiteto de Software Especialista em Integrações. Sua tarefa é extrair SISTEMAS, APIs e DEPENDÊNCIAS.
+      Extraia as integrações e dependências do seguinte conteúdo (Páginas ${chunk.startPage} a ${chunk.endPage}):
       
-      FOCO DA ANÁLISE (Páginas ${chunk.startPage} a ${chunk.endPage}):
+      CONTEÚDO:
       ${this.usingCache ? "(O conteúdo completo está disponível no contexto de cache)" : chunk.content}
-
-      REQUISITO CRÍTICO DE FORMATO:
-      Retorne APENAS um objeto JSON no formato abaixo, sem Markdown, sem preâmbulo.
-      
-      ESTRUTURA ESPERADA:
-      {
-        "integracoes": [
-          {
-            "sistema": "Nome do sistema/serviço",
-            "status_especificacao": "Completo" | "Incompleto" | "Ausente",
-            "detalhe": "O que é integrado?",
-            "pagina": "${chunk.startPage}",
-            "impacto": "Risco técnico se faltar detalhamento"
-          }
-        ]
-      }
     `;
 
-    const result = await withRetry(() => this.model.generateContent(prompt));
-    const response = await result.response;
-    const text = response.text().trim();
-    const parsed = safeParseJson<{ integracoes?: any[] }>(text, "integrations");
+    let rawText = "";
+    try {
+      const result = await withRetry(() => this.model.generateContent(prompt));
+      const response = await result.response;
+      rawText = response.text().trim();
+      const parsed = safeParseJson<{ integracoes?: any[] }>(rawText, "integrations");
 
-    if (!parsed || !Array.isArray(parsed.integracoes)) {
-      console.error("Error parsing integrations JSON or missing integracoes array.", { text: text.slice(0, 1000) });
+      if (!parsed || !parsed.integracoes || !Array.isArray(parsed.integracoes)) {
+        throw new Error("Estrutura JSON inválida ou vazia recebida do modelo.");
+      }
+
+      return { integracoes: parsed.integracoes };
+    } catch (error) {
+      console.error(`[IntegrationsAgent] Erro de Parse nas páginas ${chunk.startPage}-${chunk.endPage}:`, {
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        rawResponse: rawText
+      });
       return { integracoes: [] };
     }
-
-    return { integracoes: parsed.integracoes };
   }
 }

@@ -42,12 +42,15 @@ export interface FinalReport {
     sistema: string;
     status_especificacao: string;
     detalhe: string;
+    pagina: string;
+    impacto: string;
   }>;
   gaps_regra_negocio: Array<{
     regra: string;
     cenario_omitido: string;
     risco: string;
     pagina: string;
+    sugestao_correcao: string;
   }>;
   mensagens_e_estados_ausentes: string[];
   conflitos_cruzados: Array<{
