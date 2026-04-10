@@ -43,3 +43,6 @@ next-env.d.ts
 
 #docs
 /refactor-plan
+
+# Claude Code
+.claude/
